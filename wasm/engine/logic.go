@@ -21,8 +21,8 @@ func (e *Engine) HandleAction(input InteractionInput) InteractionResult {
 			if quest.Type == QuestTypeCustom && input.Action == "CLICK" {
 				return InteractionResult{
 					Status:    StatusOpenSubView,
-					SubViewID: quest.SubViewID, 
-					Message:   quest.Description[1], 
+					SubViewID: quest.SubViewID,
+					Message:   quest.Description[1],
 				}
 			}
 
@@ -39,23 +39,23 @@ func (e *Engine) HandleAction(input InteractionInput) InteractionResult {
 	if interactions, exists := e.WorldConfig.StaticInteractions[targetID]; exists {
 		for _, inter := range interactions {
 			if e.checkCondition(inter.RequiredFlag, inter.RequiredValue) {
-				
+
 				localUpdates := e.applyEffects(inter.Effects)
 
 				result := InteractionResult{
 					Status:       StatusSuccess,
 					Message:      inter.Description,
-					Dialogue:     inter.Dialogue, 
+					Dialogue:     inter.Dialogue,
 					Speaker:      inter.Speaker,
 					TriggerEvent: inter.TriggerEvent,
-					SubViewID:    inter.SubViewID, 
+					SubViewID:    inter.SubViewID,
 					UpdatedFlags: localUpdates,
 					NewItems:     inter.ItemReward,
 				}
 
 				if len(inter.ItemReward) > 0 {
 					e.GameState.Inventory = append(e.GameState.Inventory, inter.ItemReward...)
-					e.GameState.IsDirty = true 
+					e.GameState.IsDirty = true
 				}
 
 				if len(inter.Dialogue) > 0 {
@@ -68,7 +68,7 @@ func (e *Engine) HandleAction(input InteractionInput) InteractionResult {
 					e.GameState.SceneID = inter.TargetScene
 					result.Status = StatusChangeScene
 					result.NextSceneID = inter.TargetScene
-					result.UpdatedFlags = nil // 切场景时不需要返回旧场景的 Flag 更新
+					result.UpdatedFlags = nil // 切场景时不需要返回旧场景的 Flag 更新，前端会重新拉取新场景
 					e.GameState.IsDirty = true
 				}
 
@@ -125,7 +125,7 @@ func (e *Engine) processQuestSuccess(qID string, idx int) InteractionResult {
 
 	e.GameState.ActiveQuestID = append(e.GameState.ActiveQuestID[:idx], e.GameState.ActiveQuestID[idx+1:]...)
 	e.GameState.CompletedQuests[qID] = true
-	
+
 	localUpdates := e.applyEffects(quest.Effects)
 
 	e.RefreshQuests()
@@ -204,46 +204,49 @@ func (e *Engine) applyEffects(effects []Effect) map[string]int {
 
 	for _, eff := range effects {
 		e.GameState.WorldFlags[eff.FlagName] = eff.Value
-		
+
 		// 如果当前场景关心这个 Flag，加入返回列表
 		if relevantSet[eff.FlagName] {
 			updates[eff.FlagName] = eff.Value
 		}
 	}
-	
+
 	if len(effects) > 0 {
 		e.GameState.IsDirty = true
 	}
-	
+
 	return updates
 }
 
+// 我去我怎么连删东西都要遍历
 func (e *Engine) removeItemFromInventory(itemID string) {
-    if itemID == "" { return }
-    
-    inventory := e.GameState.Inventory
-    found := false
+	if itemID == "" {
+		return
+	}
 
-    j := 0
-    for i := 0; i < len(inventory); i++ {
-        if inventory[i] == itemID && !found {
-            found = true
-            continue
-        }
-        inventory[j] = inventory[i]
-        j++
-    }
+	inventory := e.GameState.Inventory
+	found := false
 
-    if found {
-        e.GameState.Inventory = inventory[:j]
-        e.GameState.IsDirty = true
-    }
+	j := 0
+	for i := 0; i < len(inventory); i++ {
+		if inventory[i] == itemID && !found {
+			found = true
+			continue
+		}
+		inventory[j] = inventory[i]
+		j++
+	}
+
+	if found {
+		e.GameState.Inventory = inventory[:j]
+		e.GameState.IsDirty = true
+	}
 }
 
 // checkCondition 检查 Flag 是否满足要求
 func (e *Engine) checkCondition(flag string, val int) bool {
 	if flag == "" {
-		return true // 无条件
+		return true // 无flag要求直接过
 	}
 	return e.GameState.WorldFlags[flag] == val
 }
@@ -257,22 +260,21 @@ func contains(slice []string, s string) bool {
 	return false
 }
 
-
 // GetSerializedState 导出存档
 func (e *Engine) GetSerializedState() (string, error) {
 	saveData := GameSaveData{
 		State:     *e.GameState,
 		Timestamp: time.Now().Unix(),
-		Version:   "1.0.0",
+		Version:   "1.0.0", // 1.0.0 版本重磅上线！！！
 	}
 
 	bytes, err := json.Marshal(saveData)
 	if err != nil {
 		return "", err
 	}
-	
+
 	e.GameState.IsDirty = false
-	
+
 	return string(bytes), nil
 }
 
@@ -284,8 +286,8 @@ func (e *Engine) LoadFromSerializedState(jsonStr string) error {
 	}
 
 	e.GameState = &wrapper.State
-	
+
 	e.RefreshQuests()
-	
+
 	return nil
 }
